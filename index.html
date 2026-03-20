@@ -448,23 +448,19 @@
   }
   .preview-size-label.savings span { color: var(--green); }
 
-  /* Slider container */
   .slider-container {
     position: relative;
     overflow: hidden;
     cursor: ew-resize;
-    flex: 1;
-    min-height: 0;
+    height: 480px;
+    background: #000;
     user-select: none;
   }
-  .slider-container img {
+  .slider-img {
     position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
     pointer-events: none;
+    display: block;
+    z-index: 1;
   }
   .slider-after {
     position: absolute;
@@ -472,14 +468,14 @@
     width: 50%;
     height: 100%;
     overflow: hidden;
+    z-index: 2;
   }
-  .slider-after img {
+  .slider-after .slider-img {
     position: absolute;
-    top: 0; left: 0;
-    width: var(--img-width, 100%);
-    height: 100%;
-    object-fit: contain;
-    max-width: none;
+    z-index: 2;
+  }
+  .slider-handle {
+    z-index: 3;
   }
   .slider-handle {
     position: absolute;
@@ -737,9 +733,9 @@
       <div class="preview-size-label savings">Compressed <span id="previewCompSize">—</span> &nbsp;·&nbsp; <span id="previewSavings" style="color:var(--green)"></span></div>
     </div>
     <div class="slider-container" id="sliderContainer">
-      <img id="sliderImgBefore" src="" alt="Original">
+      <img id="sliderImgBefore" class="slider-img" src="" alt="Original">
       <div class="slider-after" id="sliderAfter">
-        <img id="sliderImgAfter" src="" alt="Compressed">
+        <img id="sliderImgAfter" class="slider-img" src="" alt="Compressed">
       </div>
       <div class="slider-handle" id="sliderHandle"></div>
       <div class="slider-label-after">Compressed</div>
@@ -1192,33 +1188,84 @@ const sliderHandle     = document.getElementById('sliderHandle');
 const sliderImgBefore  = document.getElementById('sliderImgBefore');
 const sliderImgAfter   = document.getElementById('sliderImgAfter');
 
+let imgBounds = { x: 0, y: 0, w: 0, h: 0 };
+
+function alignImages() {
+  const cw = sliderContainer.offsetWidth;
+  const ch = sliderContainer.offsetHeight;
+  const img = sliderImgBefore;
+  if (!img.naturalWidth || !img.naturalHeight) return;
+
+  const imgRatio = img.naturalWidth / img.naturalHeight;
+  const conRatio = cw / ch;
+  let rw, rh, rx, ry;
+  if (imgRatio > conRatio) {
+    rw = cw; rh = cw / imgRatio;
+  } else {
+    rh = ch; rw = ch * imgRatio;
+  }
+  rx = (cw - rw) / 2;
+  ry = (ch - rh) / 2;
+  imgBounds = { x: rx, y: ry, w: rw, h: rh };
+
+  // Before image sits in container, offset by rx/ry
+  sliderImgBefore.style.width  = rw + 'px';
+  sliderImgBefore.style.height = rh + 'px';
+  sliderImgBefore.style.left   = rx + 'px';
+  sliderImgBefore.style.top    = ry + 'px';
+
+  // sliderAfter is positioned starting at rx in the container
+  // After image inside it starts at left:0 (no extra offset needed)
+  sliderAfter.style.top    = ry + 'px';
+  sliderAfter.style.height = rh + 'px';
+  sliderImgAfter.style.width  = rw + 'px';
+  sliderImgAfter.style.height = rh + 'px';
+  sliderImgAfter.style.left   = '0px';
+  sliderImgAfter.style.top    = '0px';
+
+  setSliderPos(50);
+}
+
+function setSliderPos(pct) {
+  pct = Math.max(0, Math.min(100, pct));
+  const clipW = (imgBounds.w * pct) / 100;
+  sliderAfter.style.left  = imgBounds.x + 'px';
+  sliderAfter.style.width = clipW + 'px';
+  sliderHandle.style.left = (imgBounds.x + clipW) + 'px';
+}
+
+function getPosFromEvent(e) {
+  const rect = sliderContainer.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const raw = ((clientX - rect.left - imgBounds.x) / imgBounds.w) * 100;
+  return Math.max(0, Math.min(100, raw));
+}
+
 function openPreview(item) {
   if (item.status !== 'done' || !item.compressedBlob) return;
 
-  // Populate sizes
   document.getElementById('previewTitle').textContent = item.file.name;
   document.getElementById('previewOrigSize').textContent = formatSize(item.originalSize);
   document.getElementById('previewCompSize').textContent = formatSize(item.compressedSize);
   const pct = Math.round((1 - item.compressedSize / item.originalSize) * 100);
   document.getElementById('previewSavings').textContent = pct > 0 ? `−${pct}% saved` : '≈ same size';
 
-  // Set compressed image
+  // Load compressed
   const compressedUrl = URL.createObjectURL(item.compressedBlob);
   sliderImgAfter.src = compressedUrl;
   sliderImgAfter.onload = () => URL.revokeObjectURL(compressedUrl);
 
-  // Use thumb if available, otherwise load from original file
+  // Load original — align both once before image is ready
+  sliderImgBefore.onload = () => alignImages();
   if (item.thumb) {
     sliderImgBefore.src = item.thumb;
   } else {
     const origUrl = URL.createObjectURL(item.convertedFile || item.file);
     sliderImgBefore.src = origUrl;
-    sliderImgBefore.onload = () => URL.revokeObjectURL(origUrl);
+    sliderImgBefore.onload = () => { alignImages(); URL.revokeObjectURL(origUrl); };
   }
 
-  // Reset slider to 50%
   setSliderPos(50);
-
   previewModal.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -1228,23 +1275,6 @@ function closePreview() {
   document.body.style.overflow = '';
   sliderImgBefore.src = '';
   sliderImgAfter.src = '';
-}
-
-function setSliderPos(pct) {
-  pct = Math.max(0, Math.min(100, pct));
-  sliderAfter.style.width = pct + '%';
-  sliderHandle.style.left = pct + '%';
-  // Keep after image full width so it doesn't squish
-  const containerW = sliderContainer.offsetWidth;
-  if (containerW && pct > 0) {
-    sliderImgAfter.style.width = (containerW / (pct / 100)) + 'px';
-  }
-}
-
-function getPosFromEvent(e) {
-  const rect = sliderContainer.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  return ((clientX - rect.left) / rect.width) * 100;
 }
 
 let isDragging = false;
