@@ -604,7 +604,7 @@
       <div style="font-family:'Oswald',sans-serif; font-size:1.1rem; font-weight:700; color:var(--accent); flex-shrink:0; line-height:1;">1</div>
       <div>
         <div style="font-family:'Oswald',sans-serif; font-size:0.8rem; font-weight:600; color:var(--text); letter-spacing:0.04em; text-transform:uppercase; margin-bottom:3px;">Drop Your Images</div>
-        <div style="font-size:0.72rem; color:var(--text2); line-height:1.5;">Drag a folder or individual images into the box above. Works with JPEG, PNG, WebP, and iPhone HEIC photos.</div>
+        <div style="font-size:0.72rem; color:var(--text2); line-height:1.5;">Drag a folder into the box to import all images including subfolders. Use browse files for individual images, or browse subfolder to pick a single folder.</div>
       </div>
     </div>
     <div style="display:flex; align-items:flex-start; gap:12px; flex:1; padding:16px 20px; border-right:1px solid var(--border);">
@@ -636,7 +636,7 @@
     <input type="file" id="folderInput" accept="image/*,.heic,.heif" multiple webkitdirectory style="display:none">
     <div class="drop-icon">⬇</div>
     <div class="drop-title">Drop images or a folder here</div>
-    <p class="drop-sub">or <span class="browse-link" id="browseFiles">browse files</span> · <span class="browse-link" id="browseFolder">browse folder</span> · JPEG, PNG, WebP, <span style="color:var(--accent)">HEIC ✦</span> supported</p>
+    <p class="drop-sub">or <span class="browse-link" id="browseFiles">browse files</span> · <span class="browse-link" id="browseFolder">browse subfolder</span> · drag a folder to import all subfolders · <span style="color:var(--accent)">HEIC ✦</span> supported</p>
   </div>
 
   <!-- Single Controls Panel -->
@@ -903,7 +903,24 @@ async function handleFiles(files) {
 
 function renderCard(item) {
   const existing = document.getElementById('card-' + item.id);
-  if (existing) { updateCard(item); return; }
+  if (existing) {
+    // Update thumbnail if it just loaded
+    if (item.thumb) {
+      const img = existing.querySelector('.card-thumb');
+      const placeholder = existing.querySelector('.card-thumb-placeholder');
+      if (placeholder) {
+        const newImg = document.createElement('img');
+        newImg.className = 'card-thumb';
+        newImg.src = item.thumb;
+        newImg.alt = item.file.name;
+        placeholder.replaceWith(newImg);
+      } else if (img && !img.src.startsWith('data')) {
+        img.src = item.thumb;
+      }
+    }
+    updateCard(item);
+    return;
+  }
 
   const card = document.createElement('div');
   card.className = 'image-card';
@@ -1176,7 +1193,7 @@ const sliderImgBefore  = document.getElementById('sliderImgBefore');
 const sliderImgAfter   = document.getElementById('sliderImgAfter');
 
 function openPreview(item) {
-  if (item.status !== 'done' || !item.compressedBlob || !item.thumb) return;
+  if (item.status !== 'done' || !item.compressedBlob) return;
 
   // Populate sizes
   document.getElementById('previewTitle').textContent = item.file.name;
@@ -1185,11 +1202,19 @@ function openPreview(item) {
   const pct = Math.round((1 - item.compressedSize / item.originalSize) * 100);
   document.getElementById('previewSavings').textContent = pct > 0 ? `−${pct}% saved` : '≈ same size';
 
-  // Set images
-  sliderImgBefore.src = item.thumb;
+  // Set compressed image
   const compressedUrl = URL.createObjectURL(item.compressedBlob);
   sliderImgAfter.src = compressedUrl;
   sliderImgAfter.onload = () => URL.revokeObjectURL(compressedUrl);
+
+  // Use thumb if available, otherwise load from original file
+  if (item.thumb) {
+    sliderImgBefore.src = item.thumb;
+  } else {
+    const origUrl = URL.createObjectURL(item.convertedFile || item.file);
+    sliderImgBefore.src = origUrl;
+    sliderImgBefore.onload = () => URL.revokeObjectURL(origUrl);
+  }
 
   // Reset slider to 50%
   setSliderPos(50);
