@@ -369,6 +369,172 @@
   .image-card:hover .remove-btn { opacity: 1; }
   .remove-btn:hover { background: var(--red); color: white; border-color: var(--red); }
 
+  /* Preview Modal */
+  .preview-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .preview-modal.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .preview-modal-inner {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    overflow: hidden;
+    max-width: 90vw;
+    max-height: 85vh;
+    width: 900px;
+    display: flex;
+    flex-direction: column;
+  }
+  .preview-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .preview-modal-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+  .preview-modal-close {
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    color: var(--text2);
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .preview-modal-close:hover { border-color: var(--accent); color: var(--accent); }
+
+  .preview-modal-sizes {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .preview-size-label {
+    font-size: 0.7rem;
+    color: var(--text3);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .preview-size-label span {
+    color: var(--text);
+    font-weight: 600;
+    margin-left: 6px;
+  }
+  .preview-size-label.savings span { color: var(--green); }
+
+  /* Slider container */
+  .slider-container {
+    position: relative;
+    overflow: hidden;
+    cursor: ew-resize;
+    flex: 1;
+    min-height: 0;
+    user-select: none;
+  }
+  .slider-container img {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+  }
+  .slider-after {
+    position: absolute;
+    top: 0; left: 0;
+    width: 50%;
+    height: 100%;
+    overflow: hidden;
+  }
+  .slider-after img {
+    position: absolute;
+    top: 0; left: 0;
+    width: var(--img-width, 100%);
+    height: 100%;
+    object-fit: contain;
+    max-width: none;
+  }
+  .slider-handle {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 100%;
+    background: white;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .slider-handle::before {
+    content: '◀ ▶';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    color: #111;
+    font-size: 0.65rem;
+    padding: 6px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .slider-label-before,
+  .slider-label-after {
+    position: absolute;
+    bottom: 12px;
+    font-size: 0.65rem;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .slider-label-before {
+    right: 12px;
+    background: rgba(0,0,0,0.55);
+    color: var(--text2);
+  }
+  .slider-label-after {
+    left: 12px;
+    background: rgba(241,154,76,0.85);
+    color: #111;
+  }
+
+  /* card cursor hint */
+  .image-card.done { cursor: pointer; }
+
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
@@ -559,7 +725,28 @@
 
 </div>
 
-<!-- Toast -->
+<!-- Preview Modal -->
+<div class="preview-modal" id="previewModal">
+  <div class="preview-modal-inner">
+    <div class="preview-modal-header">
+      <div class="preview-modal-title" id="previewTitle">Before / After</div>
+      <button class="preview-modal-close" id="previewClose">✕ Close</button>
+    </div>
+    <div class="preview-modal-sizes">
+      <div class="preview-size-label">Original <span id="previewOrigSize">—</span></div>
+      <div class="preview-size-label savings">Compressed <span id="previewCompSize">—</span> &nbsp;·&nbsp; <span id="previewSavings" style="color:var(--green)"></span></div>
+    </div>
+    <div class="slider-container" id="sliderContainer">
+      <img id="sliderImgBefore" src="" alt="Original">
+      <div class="slider-after" id="sliderAfter">
+        <img id="sliderImgAfter" src="" alt="Compressed">
+      </div>
+      <div class="slider-handle" id="sliderHandle"></div>
+      <div class="slider-label-after">Compressed</div>
+      <div class="slider-label-before">Original</div>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -978,6 +1165,86 @@ function toggleCustomWidth(select) {
 compressBtn.addEventListener('click', compressAll);
 downloadBtn.addEventListener('click', downloadZip);
 clearBtn.addEventListener('click', clearAll);
+
+// ── Before/After Preview Modal ──────────────────────────────────────────────
+const previewModal     = document.getElementById('previewModal');
+const previewClose     = document.getElementById('previewClose');
+const sliderContainer  = document.getElementById('sliderContainer');
+const sliderAfter      = document.getElementById('sliderAfter');
+const sliderHandle     = document.getElementById('sliderHandle');
+const sliderImgBefore  = document.getElementById('sliderImgBefore');
+const sliderImgAfter   = document.getElementById('sliderImgAfter');
+
+function openPreview(item) {
+  if (item.status !== 'done' || !item.compressedBlob || !item.thumb) return;
+
+  // Populate sizes
+  document.getElementById('previewTitle').textContent = item.file.name;
+  document.getElementById('previewOrigSize').textContent = formatSize(item.originalSize);
+  document.getElementById('previewCompSize').textContent = formatSize(item.compressedSize);
+  const pct = Math.round((1 - item.compressedSize / item.originalSize) * 100);
+  document.getElementById('previewSavings').textContent = pct > 0 ? `−${pct}% saved` : '≈ same size';
+
+  // Set images
+  sliderImgBefore.src = item.thumb;
+  const compressedUrl = URL.createObjectURL(item.compressedBlob);
+  sliderImgAfter.src = compressedUrl;
+  sliderImgAfter.onload = () => URL.revokeObjectURL(compressedUrl);
+
+  // Reset slider to 50%
+  setSliderPos(50);
+
+  previewModal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePreview() {
+  previewModal.classList.remove('open');
+  document.body.style.overflow = '';
+  sliderImgBefore.src = '';
+  sliderImgAfter.src = '';
+}
+
+function setSliderPos(pct) {
+  pct = Math.max(0, Math.min(100, pct));
+  sliderAfter.style.width = pct + '%';
+  sliderHandle.style.left = pct + '%';
+  // Keep after image full width so it doesn't squish
+  const containerW = sliderContainer.offsetWidth;
+  if (containerW && pct > 0) {
+    sliderImgAfter.style.width = (containerW / (pct / 100)) + 'px';
+  }
+}
+
+function getPosFromEvent(e) {
+  const rect = sliderContainer.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  return ((clientX - rect.left) / rect.width) * 100;
+}
+
+let isDragging = false;
+
+sliderContainer.addEventListener('mousedown', e => { isDragging = true; setSliderPos(getPosFromEvent(e)); });
+window.addEventListener('mousemove', e => { if (isDragging) setSliderPos(getPosFromEvent(e)); });
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+sliderContainer.addEventListener('touchstart', e => { isDragging = true; setSliderPos(getPosFromEvent(e)); }, { passive: true });
+window.addEventListener('touchmove', e => { if (isDragging) setSliderPos(getPosFromEvent(e)); }, { passive: true });
+window.addEventListener('touchend', () => { isDragging = false; });
+
+previewClose.addEventListener('click', closePreview);
+previewModal.addEventListener('click', e => { if (e.target === previewModal) closePreview(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+
+// Click on done image cards to open preview
+imageGrid.addEventListener('click', e => {
+  const card = e.target.closest('.image-card.done');
+  if (!card) return;
+  if (e.target.closest('.remove-btn')) return; // don't trigger on remove button
+  const id = parseInt(card.id.replace('card-', ''));
+  const item = state.files.find(f => f.id === id);
+  if (item) openPreview(item);
+});
 </script>
 </body>
 </html>
