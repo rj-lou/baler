@@ -610,7 +610,8 @@ dropZone.addEventListener('drop', async e => {
   handleFiles(files);
 });
 
-function readDirectory(dirEntry) {
+function readDirectory(dirEntry, basePath) {
+  basePath = basePath || dirEntry.name;
   return new Promise(resolve => {
     const results = [];
     const reader = dirEntry.createReader();
@@ -619,9 +620,13 @@ function readDirectory(dirEntry) {
         if (!entries.length) return resolve(results);
         for (const entry of entries) {
           if (entry.isFile) {
-            await new Promise(res => entry.file(f => { results.push(f); res(); }));
+            await new Promise(res => entry.file(f => {
+              f._relativePath = basePath + '/' + f.name;
+              results.push(f);
+              res();
+            }));
           } else if (entry.isDirectory) {
-            const sub = await readDirectory(entry);
+            const sub = await readDirectory(entry, basePath + '/' + entry.name);
             results.push(...sub);
           }
         }
@@ -690,7 +695,8 @@ async function handleFiles(files) {
 
   for (const file of imageFiles) {
     const id = ++state.counter;
-    const item = { id, file, originalSize: file.size, thumb: null, status: 'queued', compressedBlob: null, compressedSize: null, isHeic: isHEIC(file) };
+    const relativePath = file._relativePath || file.webkitRelativePath || null;
+    const item = { id, file, relativePath, originalSize: file.size, thumb: null, status: 'queued', compressedBlob: null, compressedSize: null, isHeic: isHEIC(file) };
     state.files.push(item);
     // Add card immediately with placeholder
     renderCard(item);
@@ -837,7 +843,14 @@ async function downloadZip() {
 
   for (const item of done) {
     const baseName = item.file.name.replace(/\.[^/.]+$/, '');
-    folder.file(`${baseName}.${ext}`, item.compressedBlob);
+    const outputFileName = `${baseName}.${ext}`;
+    if (item.relativePath) {
+      // Preserve subfolder structure — replace original extension with new one
+      const outputPath = item.relativePath.replace(/\.[^/.]+$/, `.${ext}`);
+      folder.file(outputPath, item.compressedBlob);
+    } else {
+      folder.file(outputFileName, item.compressedBlob);
+    }
   }
 
   // Generate CSV log
@@ -845,16 +858,20 @@ async function downloadZip() {
   const dateStr = now.toLocaleDateString('en-US', { year:'numeric', month:'2-digit', day:'2-digit' });
   const timeStr = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
   const csvRows = [
-    ['Original Filename', 'Output Filename', 'Original Size', 'Compressed Size', 'Savings', 'Date', 'Time']
+    ['Original Filename', 'Subfolder', 'Output Filename', 'Original Size', 'Compressed Size', 'Savings', 'Date', 'Time']
   ];
   for (const item of done) {
     const baseName = item.file.name.replace(/\.[^/.]+$/, '');
     const outputName = `${baseName}.${ext}`;
+    const subfolderPath = item.relativePath
+      ? item.relativePath.substring(0, item.relativePath.lastIndexOf('/'))
+      : '';
     const savings = item.originalSize > 0
       ? Math.round((1 - item.compressedSize / item.originalSize) * 100) + '%'
       : '0%';
     csvRows.push([
       item.file.name,
+      subfolderPath,
       outputName,
       formatSize(item.originalSize),
       formatSize(item.compressedSize),
