@@ -448,83 +448,54 @@
   }
   .preview-size-label.savings span { color: var(--green); }
 
-  .slider-container {
+  /* Side-by-side comparison panels */
+  .comparison-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .comparison-panel {
     position: relative;
-    overflow: hidden;
-    cursor: ew-resize;
-    height: 480px;
     background: #000;
-    user-select: none;
-  }
-  .slider-img {
-    position: absolute;
-    pointer-events: none;
-    display: block;
-    z-index: 1;
-  }
-  .slider-after {
-    position: absolute;
-    top: 0; left: 0;
-    width: 50%;
-    height: 100%;
     overflow: hidden;
-    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 420px;
   }
-  .slider-after .slider-img {
-    position: absolute;
-    z-index: 2;
+  .comparison-panel:first-child {
+    border-right: 2px solid var(--border2);
   }
-  .slider-handle {
-    z-index: 3;
+  .comparison-panel img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
   }
-  .slider-handle {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 3px;
-    height: 100%;
-    background: white;
-    pointer-events: none;
-    z-index: 10;
-  }
-  .slider-handle::before {
-    content: '◀ ▶';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: white;
-    color: #111;
-    font-size: 0.65rem;
-    padding: 6px 8px;
-    border-radius: 20px;
-    white-space: nowrap;
-    letter-spacing: 0.05em;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  }
-  .slider-label-before,
-  .slider-label-after {
+  .comparison-panel-label {
     position: absolute;
     bottom: 12px;
-    font-size: 0.65rem;
+    left: 50%;
+    transform: translateX(-50%);
     font-family: 'Oswald', sans-serif;
+    font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    padding: 4px 10px;
+    padding: 4px 12px;
     border-radius: 4px;
-    pointer-events: none;
-    z-index: 5;
+    white-space: nowrap;
   }
-  .slider-label-before {
-    right: 12px;
-    background: rgba(0,0,0,0.55);
+  .comparison-panel-label.original {
+    background: rgba(0,0,0,0.6);
     color: var(--text2);
+    border: 1px solid var(--border2);
   }
-  .slider-label-after {
-    left: 12px;
-    background: rgba(241,154,76,0.85);
+  .comparison-panel-label.compressed {
+    background: rgba(241,154,76,0.9);
     color: #111;
   }
 
@@ -756,14 +727,15 @@
       <div class="preview-size-label">Original <span id="previewOrigSize">—</span></div>
       <div class="preview-size-label savings">Compressed <span id="previewCompSize">—</span> &nbsp;·&nbsp; <span id="previewSavings" style="color:var(--green)"></span></div>
     </div>
-    <div class="slider-container" id="sliderContainer">
-      <img id="sliderImgBefore" class="slider-img" src="" alt="Original">
-      <div class="slider-after" id="sliderAfter">
-        <img id="sliderImgAfter" class="slider-img" src="" alt="Compressed">
+    <div class="comparison-panels">
+      <div class="comparison-panel">
+        <img id="previewImgBefore" src="" alt="Original">
+        <div class="comparison-panel-label original">Original</div>
       </div>
-      <div class="slider-handle" id="sliderHandle"></div>
-      <div class="slider-label-after">Compressed</div>
-      <div class="slider-label-before">Original</div>
+      <div class="comparison-panel">
+        <img id="previewImgAfter" src="" alt="Compressed">
+        <div class="comparison-panel-label compressed">Compressed</div>
+      </div>
     </div>
   </div>
 </div>
@@ -1199,66 +1171,10 @@ downloadBtn.addEventListener('click', downloadZip);
 clearBtn.addEventListener('click', clearAll);
 
 // ── Before/After Preview Modal ──────────────────────────────────────────────
-const previewModal     = document.getElementById('previewModal');
-const previewClose     = document.getElementById('previewClose');
-const sliderContainer  = document.getElementById('sliderContainer');
-const sliderAfter      = document.getElementById('sliderAfter');
-const sliderHandle     = document.getElementById('sliderHandle');
-const sliderImgBefore  = document.getElementById('sliderImgBefore');
-const sliderImgAfter   = document.getElementById('sliderImgAfter');
-
-let imgBounds = { x: 0, y: 0, w: 0, h: 0 };
-
-function alignImages() {
-  const cw = sliderContainer.offsetWidth;
-  const ch = sliderContainer.offsetHeight;
-  const img = sliderImgBefore;
-  if (!img.naturalWidth || !img.naturalHeight) return;
-
-  const imgRatio = img.naturalWidth / img.naturalHeight;
-  const conRatio = cw / ch;
-  let rw, rh, rx, ry;
-  if (imgRatio > conRatio) {
-    rw = cw; rh = cw / imgRatio;
-  } else {
-    rh = ch; rw = ch * imgRatio;
-  }
-  rx = (cw - rw) / 2;
-  ry = (ch - rh) / 2;
-  imgBounds = { x: rx, y: ry, w: rw, h: rh };
-
-  // Before image sits in container, offset by rx/ry
-  sliderImgBefore.style.width  = rw + 'px';
-  sliderImgBefore.style.height = rh + 'px';
-  sliderImgBefore.style.left   = rx + 'px';
-  sliderImgBefore.style.top    = ry + 'px';
-
-  // sliderAfter is positioned starting at rx in the container
-  // After image inside it starts at left:0 (no extra offset needed)
-  sliderAfter.style.top    = ry + 'px';
-  sliderAfter.style.height = rh + 'px';
-  sliderImgAfter.style.width  = rw + 'px';
-  sliderImgAfter.style.height = rh + 'px';
-  sliderImgAfter.style.left   = '0px';
-  sliderImgAfter.style.top    = '0px';
-
-  setSliderPos(50);
-}
-
-function setSliderPos(pct) {
-  pct = Math.max(0, Math.min(100, pct));
-  const clipW = (imgBounds.w * pct) / 100;
-  sliderAfter.style.left  = imgBounds.x + 'px';
-  sliderAfter.style.width = clipW + 'px';
-  sliderHandle.style.left = (imgBounds.x + clipW) + 'px';
-}
-
-function getPosFromEvent(e) {
-  const rect = sliderContainer.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const raw = ((clientX - rect.left - imgBounds.x) / imgBounds.w) * 100;
-  return Math.max(0, Math.min(100, raw));
-}
+const previewModal   = document.getElementById('previewModal');
+const previewClose   = document.getElementById('previewClose');
+const previewImgBefore = document.getElementById('previewImgBefore');
+const previewImgAfter  = document.getElementById('previewImgAfter');
 
 function openPreview(item) {
   if (item.status !== 'done' || !item.compressedBlob) return;
@@ -1269,22 +1185,20 @@ function openPreview(item) {
   const pct = Math.round((1 - item.compressedSize / item.originalSize) * 100);
   document.getElementById('previewSavings').textContent = pct > 0 ? `−${pct}% saved` : '≈ same size';
 
-  // Load compressed
+  // Load compressed image
   const compressedUrl = URL.createObjectURL(item.compressedBlob);
-  sliderImgAfter.src = compressedUrl;
-  sliderImgAfter.onload = () => URL.revokeObjectURL(compressedUrl);
+  previewImgAfter.src = compressedUrl;
+  previewImgAfter.onload = () => URL.revokeObjectURL(compressedUrl);
 
-  // Load original — align both once before image is ready
-  sliderImgBefore.onload = () => alignImages();
+  // Load original
   if (item.thumb) {
-    sliderImgBefore.src = item.thumb;
+    previewImgBefore.src = item.thumb;
   } else {
     const origUrl = URL.createObjectURL(item.convertedFile || item.file);
-    sliderImgBefore.src = origUrl;
-    sliderImgBefore.onload = () => { alignImages(); URL.revokeObjectURL(origUrl); };
+    previewImgBefore.src = origUrl;
+    previewImgBefore.onload = () => URL.revokeObjectURL(origUrl);
   }
 
-  setSliderPos(50);
   previewModal.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -1292,19 +1206,9 @@ function openPreview(item) {
 function closePreview() {
   previewModal.classList.remove('open');
   document.body.style.overflow = '';
-  sliderImgBefore.src = '';
-  sliderImgAfter.src = '';
+  previewImgBefore.src = '';
+  previewImgAfter.src = '';
 }
-
-let isDragging = false;
-
-sliderContainer.addEventListener('mousedown', e => { isDragging = true; setSliderPos(getPosFromEvent(e)); });
-window.addEventListener('mousemove', e => { if (isDragging) setSliderPos(getPosFromEvent(e)); });
-window.addEventListener('mouseup', () => { isDragging = false; });
-
-sliderContainer.addEventListener('touchstart', e => { isDragging = true; setSliderPos(getPosFromEvent(e)); }, { passive: true });
-window.addEventListener('touchmove', e => { if (isDragging) setSliderPos(getPosFromEvent(e)); }, { passive: true });
-window.addEventListener('touchend', () => { isDragging = false; });
 
 previewClose.addEventListener('click', closePreview);
 previewModal.addEventListener('click', e => { if (e.target === previewModal) closePreview(); });
@@ -1314,7 +1218,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview
 imageGrid.addEventListener('click', e => {
   const card = e.target.closest('.image-card.done');
   if (!card) return;
-  if (e.target.closest('.remove-btn')) return; // don't trigger on remove button
+  if (e.target.closest('.remove-btn')) return;
   const id = parseInt(card.id.replace('card-', ''));
   const item = state.files.find(f => f.id === id);
   if (item) openPreview(item);
